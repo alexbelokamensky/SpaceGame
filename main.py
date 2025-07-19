@@ -9,59 +9,53 @@ clock = pygame.time.Clock()
 running = True
 dt = 0
 
-player_pos = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
-player_rotation = 270
-player_acceleration = pygame.Vector2(0,0)
-player_speed = pygame.Vector2(0,0)
-
 original_player_image = pygame.image.load(os.path.join("rocket.png")).convert_alpha()
 player_sprite = pygame.transform.scale(original_player_image, (75,75))
-player_sprite = pygame.transform.rotate(player_sprite, 90)
 
-def player(x,y): 
-    rotated_image = pygame.transform.rotate(player_sprite, player_rotation)
-    rect = rotated_image.get_rect(center=(x, y))
-    screen.blit(rotated_image, rect.topleft)
-    player_mask = pygame.mask.from_surface(rotated_image)
+class Mob:
+    def __init__(self, x, y, angle=0):
+        self.pos = pygame.Vector2(x, y)
+        self.angle = angle
+        self.velocity = pygame.Vector2(0, 0)
+        self.acceleration = pygame.Vector2(0, 0)
 
+    def update(self, dt):
+        self.velocity += self.acceleration
+        self.pos += self.velocity * dt
+
+    def draw(self, surface, image):
+        rotated_image = pygame.transform.rotate(image, -self.angle)
+        rect = rotated_image.get_rect(center=(self.pos.x, self.pos.y))
+        surface.blit(rotated_image, rect.topleft)
+
+class Player(Mob):
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_a]:
+            self.angle -= 5
+        if keys[pygame.K_d]:
+            self.angle += 5
+    
+    def update(self, dt):
+        self.acceleration = pygame.Vector2(math.sin(math.radians(self.angle)),-math.cos(math.radians(self.angle)))
+        self.velocity += self.acceleration
+        self.pos += self.velocity * dt
+
+player = Player(screen.get_width() / 2, screen.get_height() / 2)
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
+    dt = clock.tick(60) / 1000
+
     screen.fill("black")
 
-    radians = math.radians(player_rotation)
-    player_acceleration.x = -math.cos(radians)
-    player_acceleration.y = math.sin(radians)
-
-    player_speed.x += player_acceleration.x
-    player_speed.y += player_acceleration.y
-
-    player_pos.x += player_speed.x/20
-    player_pos.y += player_speed.y/20
-
-    player(player_pos.x, player_pos.y)
-
-
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_a]:
-        player_rotation += 5
-    if keys[pygame.K_d]:
-        player_rotation -= 5
-
-    if player_pos.x > 1280:
-        player_pos.x = 0
-    if player_pos.x < 0:
-        player_pos.x = 1280
-    if player_pos.y > 720:
-        player_pos.y = 0
-    if player_pos.y < 0:
-        player_pos.y = 720
+    player.handle_input()
+    player.update(dt)
+    player.draw(screen, player_sprite)
 
     pygame.display.flip()
-
-    dt = clock.tick(60) / 1000
 
 pygame.quit()
