@@ -19,22 +19,27 @@ player_mask = pygame.mask.from_surface(player_sprite)
 asteroid_mask = pygame.mask.from_surface(asteroid_sprite)
 
 class Mob:
-    def __init__(self, x, y, angle=0):
+    def __init__(self, x, y, angle=0, image=None):
         self.pos = pygame.Vector2(x, y)
         self.angle = angle
         self.velocity = pygame.Vector2(0, 0)
         self.acceleration = pygame.Vector2(0, 0)
+        self.original_image = image
+        self.image = image
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self, dt):
         self.angle += 2
         self.velocity += self.acceleration
         self.pos += self.velocity * dt
 
-    def draw(self, surface, image):
-        rotated_image = pygame.transform.rotate(image, -self.angle)
-        rect = rotated_image.get_rect(center=(self.pos.x, self.pos.y))
-        player_sprite = rect
-        surface.blit(rotated_image, rect.topleft)
+    def update_graphics(self):
+        self.image = pygame.transform.rotate(self.original_image, -self.angle)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect(center=self.pos)
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect.topleft)
 
 class Player(Mob):
     def handle_input(self):
@@ -48,7 +53,6 @@ class Player(Mob):
         self.acceleration = pygame.Vector2(math.sin(math.radians(self.angle)),-math.cos(math.radians(self.angle)))
         self.velocity += self.acceleration
         self.pos += self.velocity * dt
-        player_mask = pygame.mask.from_surface(player_sprite)
 
 
 class Asteroid(Mob):
@@ -76,8 +80,8 @@ class Asteroid(Mob):
     def collides_with(self, other, radius_self, radius_other):
         return self.pos.distance_to(other.pos) < (radius_self + radius_other)
 
-player = Player(screen.get_width() / 2, screen.get_height() / 2)
-asteroid = Asteroid(0,0)
+player = Player(screen.get_width() / 2, screen.get_height() / 2, image=player_sprite)
+asteroid = Asteroid(0, 0, image=asteroid_sprite)
 asteroid.generate()
 
 asteroids = [asteroid]
@@ -95,25 +99,25 @@ while running:
 
     player.handle_input()
     player.update(dt)
-    player.draw(screen, player_sprite)
+    player.update_graphics()
+    player.draw(screen)
 
     for asteroid in asteroids:
-        asteroid.draw(screen, asteroid_sprite)
+        asteroid.update_graphics()
+        asteroid.draw(screen)
         asteroid.update(dt)
 
-        offset = (int(asteroid.pos.x - player.pos.x), int(asteroid.pos.y - player.pos.y))
-        if player_mask.overlap(asteroid_mask, offset):
-            print("Столкновение!")
+        offset = (int(asteroid.rect.left - player.rect.left), int(asteroid.rect.top - player.rect.top))
+        if player.mask.overlap(asteroid.mask, offset):
+            print("СТОЛКНОВЕНИЕ!")
             
-
-        
         if asteroid.clear():
             asteroids.remove(asteroid)
 
     frame_counter += 1
     if frame_counter == 90:
         frame_counter = 0
-        asteroid = Asteroid(0, 0)
+        asteroid = Asteroid(0, 0, image=asteroid_sprite)
         asteroid.generate()
         asteroids.append(asteroid)
         print("generated")
