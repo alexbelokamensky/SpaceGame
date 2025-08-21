@@ -9,7 +9,8 @@ screen = pygame.display.set_mode((1280, 720))
 font = pygame.font.Font(None, 25)
 clock = pygame.time.Clock()
 running = True
-game_pause = True
+game_start = True
+game_over = False
 dt = 0
 
 original_player_image = pygame.image.load(os.path.join("rocket.png")).convert_alpha()
@@ -82,19 +83,31 @@ class Asteroid(Mob):
     def collides_with(self, other, radius_self, radius_other):
         return self.pos.distance_to(other.pos) < (radius_self + radius_other)
 
-
-def start_game():
-    global game_pause
-    print("start")
-    game_pause = False
-
-start_game = button.Button(screen.get_width() / 2 - 150, screen.get_height() / 2 - 100, 300, 200, "start", font, (0, 128, 255), (0, 200, 255), (255, 255, 255), start_game)
-
 player = Player(screen.get_width() / 2, screen.get_height() / 2, image=player_sprite)
 asteroid = Asteroid(0, 0, image=asteroid_sprite)
 asteroid.generate()
 
 asteroids = [asteroid]
+
+def start_game():
+    global game_start, game_over
+    game_start = False
+    game_over = False
+
+def restart_game():
+    global game_start, game_over, player, asteroids
+    
+    game_start = False
+    game_over = False
+
+    player = Player(screen.get_width() / 2, screen.get_height() / 2, image=player_sprite)
+    asteroids.clear()
+
+
+
+bt_start_game = button.Button(screen.get_width() / 2 - 150, screen.get_height() / 2 - 100, 300, 200, "start", font, (0, 128, 255), (0, 200, 255), (255, 255, 255), start_game)
+bt_restart_game = button.Button(screen.get_width() / 2 - 150, screen.get_height() / 2 - 100, 300, 200, "restart", font, (200, 0, 0), (128, 0, 0), (255, 255, 255), restart_game)
+
 
 frame_counter = 0
 
@@ -102,14 +115,15 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        start_game.handele_event(event)
+        bt_start_game.handele_event(event)
+        bt_restart_game.handele_event(event)
 
 
     dt = clock.tick(60) / 1000
 
     screen.fill("black")
 
-    if not game_pause:
+    if not game_start and not game_over:
         player.handle_input()
         player.update(dt)
         player.update_graphics()
@@ -122,7 +136,8 @@ while running:
 
             offset = (int(asteroid.rect.left - player.rect.left), int(asteroid.rect.top - player.rect.top))
             if player.mask.overlap(asteroid.mask, offset):
-                game_pause = True
+                game_over = True
+                game_start = True
                 
             if asteroid.clear():
                 asteroids.remove(asteroid)
@@ -133,10 +148,13 @@ while running:
             asteroid = Asteroid(0, 0, image=asteroid_sprite)
             asteroid.generate()
             asteroids.append(asteroid)
-            print("generated")
             print(len(asteroids))
-    else:
-        start_game.draw(screen)
+
+    if game_start:
+        bt_start_game.draw(screen)
+    
+    if game_over: 
+        bt_restart_game.draw(screen)        
     pygame.display.flip()
 
 pygame.quit()
