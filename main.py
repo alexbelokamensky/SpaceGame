@@ -9,9 +9,12 @@ screen = pygame.display.set_mode((1280, 720))
 font = pygame.font.Font(None, 25)
 clock = pygame.time.Clock()
 running = True
-game_start = True
+main_menu = True
 game_over = False
+survival_game = None
 dt = 0
+
+lvl_sprite = pygame.image.load(os.path.join("lvl1.png")).convert_alpha()
 
 original_player_image = pygame.image.load(os.path.join("rocket.png")).convert_alpha()
 player_sprite = pygame.transform.scale(original_player_image, (75,75))
@@ -19,6 +22,7 @@ player_sprite = pygame.transform.scale(original_player_image, (75,75))
 original_asteroid_image = pygame.image.load(os.path.join("asteroid.png")).convert_alpha()
 asteroid_sprite = pygame.transform.scale(original_asteroid_image, (50, 50))
 
+lvl_mask = pygame.mask.from_surface(lvl_sprite)
 player_mask = pygame.mask.from_surface(player_sprite)
 asteroid_mask = pygame.mask.from_surface(asteroid_sprite)
 
@@ -83,31 +87,44 @@ class Asteroid(Mob):
     def collides_with(self, other, radius_self, radius_other):
         return self.pos.distance_to(other.pos) < (radius_self + radius_other)
 
+class GameState:
+    MAIN_MENU = "main_menu"
+    SURVIVAL = "survival"
+    PARKING = "parking"
+    GAME_OVER = "game_over"
+
+class lvl:
+    def __init__(self, image):
+        self.pos = pygame.Vector2(0,0)
+        self.image = image
+        self.rect = self.image.get_rect(center=self.pos)
+    
+    def draw(self, surface, image):
+        surface.blit(image, self.rect.center)
+
+current_state = GameState.MAIN_MENU
+level = lvl(lvl_sprite)
 player = Player(screen.get_width() / 2, screen.get_height() / 2, image=player_sprite)
 asteroid = Asteroid(0, 0, image=asteroid_sprite)
 asteroid.generate()
 
 asteroids = [asteroid]
 
-def start_game():
-    global game_start, game_over
-    game_start = False
-    game_over = False
 
-def restart_game():
-    global game_start, game_over, player, asteroids
-    
-    game_start = False
-    game_over = False
+main_menu_buttons = [
+    button.Button(275, 200, 300, 100, "Survival", font, (0,128,255), (0,200,255), (255,255,255), lambda: change_state(GameState.SURVIVAL)),
+    button.Button(675, 200, 300, 100, "Parking", font, (0,128,255), (0,200,255), (255,255,255), lambda: change_state(GameState.PARKING))
+]
+game_over_buttons = [
+    button.Button(275, 400, 300, 100, "Restart", font, (200,0,0), (128,0,0), (255,255,255), lambda: change_state(GameState.MAIN_MENU)),
+    button.Button(675, 400, 300, 100, "Main Menu", font, (200,0,0), (128,0,0), (255,255,255), lambda: change_state(GameState.MAIN_MENU))
+]
 
-    player = Player(screen.get_width() / 2, screen.get_height() / 2, image=player_sprite)
+def change_state(new_state):
+    global current_state, asteroids, player
+    current_state = new_state
     asteroids.clear()
-
-
-
-bt_start_game = button.Button(screen.get_width() / 2 - 150, screen.get_height() / 2 - 100, 300, 200, "start", font, (0, 128, 255), (0, 200, 255), (255, 255, 255), start_game)
-bt_restart_game = button.Button(screen.get_width() / 2 - 150, screen.get_height() / 2 - 100, 300, 200, "restart", font, (200, 0, 0), (128, 0, 0), (255, 255, 255), restart_game)
-
+    player = Player(screen.get_width()/2, screen.get_height()/2, image=player_sprite)
 
 frame_counter = 0
 
@@ -115,20 +132,35 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        bt_start_game.handele_event(event)
-        bt_restart_game.handele_event(event)
 
-
+    if current_state == GameState.MAIN_MENU:
+        for btn in main_menu_buttons:
+            btn.handele_event(event)
+    elif current_state == GameState.GAME_OVER:
+        for btn in game_over_buttons:
+            btn.handele_event(event)
     dt = clock.tick(60) / 1000
-
     screen.fill("black")
 
-    if not game_start and not game_over:
+    if current_state == GameState.MAIN_MENU:
+        for btn in main_menu_buttons:
+            btn.draw(screen)
+
+    elif current_state == GameState.PARKING:
         player.handle_input()
         player.update(dt)
         player.update_graphics()
         player.draw(screen)
+        level.draw(screen, lvl_sprite)
+        offset = (level.pos.x - player.rect.x, level.pos.y - player.rect.y)
+        if player_mask.overlap(lvl_mask, offset):
+            current_state = GameState.GAME_OVER
 
+    elif current_state == GameState.SURVIVAL:
+        player.handle_input()
+        player.update(dt)
+        player.update_graphics()
+        player.draw(screen)
         for asteroid in asteroids:
             asteroid.update_graphics()
             asteroid.draw(screen)
@@ -136,8 +168,7 @@ while running:
 
             offset = (int(asteroid.rect.left - player.rect.left), int(asteroid.rect.top - player.rect.top))
             if player.mask.overlap(asteroid.mask, offset):
-                game_over = True
-                game_start = True
+                current_state = GameState.GAME_OVER
                 
             if asteroid.clear():
                 asteroids.remove(asteroid)
@@ -150,11 +181,10 @@ while running:
             asteroids.append(asteroid)
             print(len(asteroids))
 
-    if game_start:
-        bt_start_game.draw(screen)
-    
-    if game_over: 
-        bt_restart_game.draw(screen)        
+    elif current_state == GameState.GAME_OVER:
+        for btn in game_over_buttons:
+            btn.draw(screen)
+
     pygame.display.flip()
 
 pygame.quit()
